@@ -44,9 +44,22 @@ def sanity_checks(
       * a non-trivial fraction of examples have a real causal effect.
     """
     real = [r for r in results if r.failure_mode != "error"]
+    errors = [r for r in results if r.failure_mode == "error"]
     checks: dict[str, bool] = {}
     details: dict[str, float] = {}
     warnings: list[str] = []
+
+    if errors:
+        checks["no_eval_errors"] = False
+        details["eval_error_count"] = float(len(errors))
+        sample = errors[0].metadata.get("error", "unknown")
+        warnings.append(
+            f"{len(errors)} evaluation error(s) — excluded from means below. "
+            f"First error ({errors[0].method}): {sample}"
+        )
+    else:
+        checks["no_eval_errors"] = True
+        details["eval_error_count"] = 0.0
 
     if not real:
         return SanityReport(False, warnings=["no successful results"])
@@ -82,4 +95,4 @@ def sanity_checks(
             "may be too weak or mis-located — check patch layer/strength."
         )
 
-    return SanityReport(all(checks.values()), checks=checks, details=details, warnings=warnings)
+    return SanityReport(all(checks.values()) and not errors, checks=checks, details=details, warnings=warnings)

@@ -26,7 +26,7 @@ class TunedLensReadout:
         self.final_layer = num_hidden_layers(model) - 1
         self.translator: torch.Tensor | None = None
 
-    def calibrate(self, prompts: list[str], ridge: float = 1e-2) -> None:
+    def calibrate(self, prompts: list[str], ridge: float = 1.0) -> None:
         src, dst = [], []
         for prompt in prompts:
             h_l = capture_last_activation(self.model, self.tokenizer, prompt, self.layer)
@@ -35,10 +35,15 @@ class TunedLensReadout:
             dst.append(h_f.float())
         x = torch.stack(src)  # [n, d]
         y = torch.stack(dst)  # [n, d]
-        d = x.shape[1]
-        eye = torch.eye(d, device=x.device, dtype=x.dtype)
-        gram = x.t() @ x + ridge * eye
-        self.translator = torch.linalg.solve(gram, x.t() @ y)  # [d, d]
+        n, d = x.shape
+        eye = torch.eye(n if n < d else d, device=x.device, dtype=x.dtype)
+        if n < d:
+            # Dual ridge regression: stable when n << hidden_dim (e.g. 40 calib, 2560-d Gemma).
+            gram = x @ x.t() + ridge * eye
+            self.translator = x.t() @ torch.linalg.solve(gram, y)
+        else:
+            gram = x.t() @ x + ridge * eye
+            self.translator = torch.linalg.solve(gram, x.t() @ y)
 
     def top_k(self, prompt: str, k: int = 10) -> list[ReadoutResult]:
         if self.translator is None:
