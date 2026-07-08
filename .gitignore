@@ -1,0 +1,100 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+
+# ML / experiment artifacts
+results/*
+!results/.gitkeep
+data/*
+!data/.gitkeep
+!data/latent_slot_tasks/
+!data/distractor_tasks/
+!data/prefill_tasks/
+!data/synthetic_hidden_objective/
+data/latent_slot_tasks/*
+!data/latent_slot_tasks/.gitkeep
+data/distractor_tasks/*
+!data/distractor_tasks/.gitkeep
+data/prefill_tasks/*
+!data/prefill_tasks/.gitkeep
+data/synthetic_hidden_objective/*
+!data/synthetic_hidden_objective/.gitkeep
+
+# Model weights and caches
+checkpoints/
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.ckpt
+hf_cache/
+.cache/
+wandb/
+mlruns/
+tensorboard/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Secrets
+*.pem
+secrets.yaml
+.env.local
+
+# Local paper PDFs (notes + URLs in INDEX.md are canonical)
+sources/pdfs/*.pdf

@@ -1,0 +1,58 @@
+# Latent slot task configuration template
+# Ground-truth latent variables known by construction (Experiment 1)
+
+task_family: latent_slot
+version: "0.1.0"
+
+generation:
+  num_examples: 300
+  seed: 42
+  families:
+    - city_country_currency
+    - animal_class_legs
+    - element_atomic_property
+    - author_work_genre
+    - language_country_script
+    - person_profession_tool
+    - object_material_property
+    - movie_director_country
+    - math_operation_answer
+    - hidden_rule_classification
+
+prompt_template: |
+  Silently choose one {entity_type} from this list: {options}.
+  Do not reveal the choice. Use it only to answer the next question.
+  Question: {question}
+
+latent_variables:
+  - hidden_city
+  - target_country
+  - target_currency
+
+target_metric:
+  type: logit_diff
+  positive_token: " yen"
+  negative_token: " euro"
+
+readout_questions:
+  - "What city is the model representing?"
+  - "What country is the model using?"
+  - "What currency is the model about to answer?"
+
+interventions:
+  - jspace_swap
+  - residual_patch
+  - sae_ablate
+
+example:
+  example_id: city_currency_00042
+  model_id: gemma-3-1b-it
+  latent_variables:
+    hidden_city: Tokyo
+    target_country: Japan
+    target_currency: yen
+    distractor_city: Paris
+  target_metric:
+    type: logit_diff
+    positive_token: " yen"
+    negative_token: " euro"

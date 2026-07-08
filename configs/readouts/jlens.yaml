@@ -1,0 +1,33 @@
+# J-lens readout configuration
+
+method: jlens
+version: "0.1.0"
+
+approximation:
+  corpus_size: 1000
+  gradient_samples: 64
+  normalize: true
+
+vocabulary:
+  - cities
+  - countries
+  - currencies
+  - animals
+  - colors
+  - numbers
+  - rule_words
+  - introspection_words
+
+introspection_words:
+  - forced
+  - wrong
+  - tampered
+  - prefill
+  - continue
+
+layers: "all"  # or list of layer indices
+top_k: 10
+score_fn: cosine
+
+projection:
+  sparse_pursuit: false  # enable Anthropic-style J-space decomposition if time permits

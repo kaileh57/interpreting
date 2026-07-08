@@ -1,0 +1,22 @@
+# SAE feature ablation intervention configuration
+
+method: sae_ablate
+version: "0.1.0"
+
+intervention:
+  mode: ablate  # ablate | clamp | steer
+  strength: 1.0
+  layers: [6, 12, 18]
+
+feature_selection:
+  source: readout_topk  # readout_topk | manual | neuronpedia_search
+  top_k: 5
+  contrast_prompt: null  # optional prompt for feature patching baseline
+
+measurement:
+  metric: logit_diff
+  report_feature_deltas: true
+
+example_deltas:
+  sae_tokyo_ablation_delta: null
+  paris_distractor_ablation_delta: null

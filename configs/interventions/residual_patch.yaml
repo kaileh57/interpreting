@@ -1,0 +1,20 @@
+# Residual patching intervention configuration
+
+method: residual_patch
+version: "0.1.0"
+
+patch:
+  component: resid_post  # resid_pre | resid_post | mlp_out | attn_out
+  position: last  # last | all | integer index
+  layers: [6, 12, 18]
+
+clean_corrupt:
+  pair_source: task  # task provides clean_prompt / corrupt_prompt pairs
+  swap_latent: hidden_city
+
+measurement:
+  metric: logit_diff
+  robustness:
+    patch_strengths: [0.25, 0.5, 0.75, 1.0]
+    layer_sweep: true
+    position_sweep: false

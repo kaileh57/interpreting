@@ -1,0 +1,22 @@
+# SAE / transcoder feature readout configuration
+
+method: sae_features
+version: "0.1.0"
+
+artifact:
+  provider: gemma_scope_2  # gemma_scope_2 | qwen_scope | local
+  model_family: gemma-3
+  layers: [6, 12, 18]
+
+readout:
+  top_k: 10
+  use_neuronpedia_descriptions: true
+  include_direct_logit_effects: true
+  include_downstream_circuit_info: false
+
+scoring:
+  description_match_mode: contains  # exact | contains | embedding_similarity
+
+intervention_link:
+  ablation_enabled: true
+  steering_enabled: true

@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rcg"
+version = "0.1.0"
+description = "RCG-Bench: Reportability–Causality Gap Benchmark for Language Model Internals"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "RCG-Bench contributors" }]
+keywords = ["interpretability", "mechanistic", "benchmark", "j-lens", "activation-oracle"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "torch>=2.0",
+    "transformers>=4.40",
+    "transformer-lens>=2.0",
+    "pydantic>=2.0",
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "matplotlib>=3.7",
+    "pyyaml>=6.0",
+    "tqdm>=4.65",
+    "datasets>=2.14",
+    "scikit-learn>=1.3",
+]
+
+[project.optional-dependencies]
+sae = ["sae-lens>=6.45"]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.4",
+    "ipykernel>=6.0",
+]
+
+# Activation Oracles: separate venv (transformers==4.55.2). See sources/tooling/activation_oracles.md
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rcg"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# build_notebooks.py embeds notebook source as long string literals.
+"scripts/build_notebooks.py" = ["E501"]

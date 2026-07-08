@@ -1,0 +1,56 @@
+# Distractor task configuration template
+# Reportable but non-causal distractors (Experiment 2)
+
+task_family: distractor
+version: "0.1.0"
+
+generation:
+  num_examples: 300
+  seed: 42
+
+prompt_template: |
+  The word "{distractor}" appears in this sentence, but the hidden city for the task is {hidden_city}.
+  Answer using only the hidden city.
+  The country containing the hidden city uses the currency ___
+
+latent_variables:
+  - distractor_city
+  - hidden_city
+  - target_country
+  - target_currency
+  - distractor_present
+
+target_metric:
+  type: logit_diff
+  positive_token: " yen"
+  negative_token: " euro"
+
+readout_questions:
+  - "Which city is the model representing?"
+  - "Does the readout identify Paris, Tokyo, or both?"
+  - "Which concept is ranked higher by the readout?"
+
+interventions:
+  - jspace_swap
+  - sae_ablate
+  - residual_patch
+
+metrics:
+  - distractor_readout_rate
+  - causal_hidden_city_effect
+  - causal_distractor_effect
+  - jspace_distractor_overweight
+
+example:
+  example_id: distractor_city_00017
+  model_id: gemma-3-1b-it
+  latent_variables:
+    distractor_city: Paris
+    hidden_city: Tokyo
+    target_country: Japan
+    target_currency: yen
+    distractor_present: true
+  target_metric:
+    type: logit_diff
+    positive_token: " yen"
+    negative_token: " euro"

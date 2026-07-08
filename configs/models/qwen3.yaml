@@ -1,0 +1,18 @@
+# Qwen3 / Qwen-Scope configs (cross-family validation — later weeks)
+
+defaults:
+  dtype: auto
+  device_map: auto
+
+models:
+  qwen3-1.7b-it:
+    hf_id: Qwen/Qwen3-1.7B-Instruct  # verify on HF before use
+    params_b: 1.7
+    role: cross_family_optional
+
+artifacts:
+  sae_suite: qwen_scope
+  paper: arxiv:2605.11887
+
+notes: |
+  Defer until Gemma pipeline is stable. MoE variants need separate hook configs.

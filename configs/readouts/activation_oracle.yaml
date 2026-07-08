@@ -1,0 +1,26 @@
+# Activation Oracle readout configuration
+
+method: activation_oracle
+version: "0.1.0"
+
+checkpoint: null  # path or HuggingFace model id when available
+
+query_modes:
+  - forced_choice
+  - open_ended
+
+forced_choice_template: |
+  Which {variable_type} is represented in this activation?
+  A. {choice_a}
+  B. {choice_b}
+  C. {choice_c}
+  D. {choice_d}
+
+open_ended_questions:
+  - "What hidden variable is the model using to answer?"
+  - "Is the model continuing a forced prefix?"
+  - "What fact is the model relying on?"
+
+scoring:
+  match_mode: exact  # exact | contains | llm_judge
+  confidence_source: bootstrap_mode_frequency

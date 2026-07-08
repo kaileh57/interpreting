@@ -1,0 +1,22 @@
+# J-space coordinate swap intervention configuration
+
+method: jspace_swap
+version: "0.1.0"
+
+swap:
+  formula: "h' = h - alpha * proj_subtract(h) + beta * j_add"
+  alpha: 1.0
+  beta: 1.0
+  layers: [6, 12, 18]
+
+concept_pairs:
+  - subtract: Tokyo
+    add: Paris
+  - subtract: Paris
+    add: Tokyo
+
+measurement:
+  metric: logit_diff
+  sweep:
+    alpha_values: [0.5, 1.0, 1.5]
+    beta_values: [0.5, 1.0, 1.5]

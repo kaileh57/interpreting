@@ -1,0 +1,38 @@
+# Gemma 3 model configs for RCG-Bench
+
+defaults:
+  dtype: auto
+  device_map: auto
+  trust_remote_code: false
+
+models:
+  gemma-3-270m-it:
+    hf_id: google/gemma-3-270m-it
+    params_b: 0.27
+    context_tokens: 32768
+    role: mvp_dev
+    colab_gpu: T4
+
+  gemma-3-1b-it:
+    hf_id: google/gemma-3-1b-it
+    params_b: 1
+    context_tokens: 32768
+    role: mvp_main
+    colab_gpu: A100
+
+  gemma-3-4b-it:
+    hf_id: google/gemma-3-4b-it
+    params_b: 4
+    context_tokens: 131072
+    role: scale_check
+    colab_gpu: A100
+
+  gemma-3-270m-pt:
+    hf_id: google/gemma-3-270m-pt
+    params_b: 0.27
+    context_tokens: 32768
+    role: base_vs_it_ablation
+
+artifacts:
+  sae_suite: gemma_scope_2
+  activation_oracle_collection: adamkarvonen/activation-oracles
