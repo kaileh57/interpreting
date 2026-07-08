@@ -53,5 +53,6 @@ target-version = "py311"
 select = ["E", "F", "I", "UP"]
 
 [tool.ruff.lint.per-file-ignores]
-# build_notebooks.py embeds notebook source as long string literals.
+# These embed notebook source as long string literals.
 "scripts/build_notebooks.py" = ["E501"]
+"scripts/build_notebooks_10_12.py" = ["E501"]

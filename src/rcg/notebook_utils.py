@@ -31,6 +31,9 @@ def repo_root() -> Path:
 def load_hf_token() -> str | None:
     if os.environ.get("HF_TOKEN"):
         return os.environ["HF_TOKEN"]
+    if os.environ.get("HUGGING_FACE_HUB_TOKEN"):
+        os.environ["HF_TOKEN"] = os.environ["HUGGING_FACE_HUB_TOKEN"]
+        return os.environ["HF_TOKEN"]
     if "google.colab" in sys.modules:
         from google.colab import userdata
 
@@ -71,7 +74,9 @@ def _needs_install() -> bool:
         return True
 
 
-def colab_bootstrap(install: bool = True, require_gpu: bool = True) -> Path:
+def colab_bootstrap(
+    install: bool = True, require_gpu: bool = True, extras: str = "[dev,sae]"
+) -> Path:
     root = repo_root()
     os.chdir(root)
     sys.path.insert(0, str(root / "src"))
@@ -80,7 +85,6 @@ def colab_bootstrap(install: bool = True, require_gpu: bool = True) -> Path:
         hf_login()
 
     if install and _needs_install():
-        extras = "[dev,sae]"
         subprocess.check_call(
             [sys.executable, "-m", "pip", "install", "-q", "-e", f"{root}{extras}"]
         )
@@ -126,8 +130,18 @@ def mount_drive(folder: str = "rcg-bench") -> Path | None:
         return None
 
 
-def sync_to_drive(root: Path | None = None, notebook: str | None = None) -> Path | None:
-    """Copy results/ and data/ to the mounted Drive folder (no-op if not on Colab)."""
+def sync_to_drive(
+    root: Path | None = None,
+    notebook: str | None = None,
+    extra_dirs: list[Path] | None = None,
+) -> Path | None:
+    """
+    Copy results/, data/, and any `extra_dirs` to the mounted Drive folder.
+
+    `extra_dirs` lets the decisive-rerun notebooks (10+) also sync their
+    canonical `runs/<run_id>/` directory (figures, tasks.jsonl, manifest.json)
+    which lives outside `results/`. No-op if Drive isn't mounted.
+    """
     import shutil
 
     drive_dir = os.environ.get("RCG_DRIVE_DIR")
@@ -145,6 +159,17 @@ def sync_to_drive(root: Path | None = None, notebook: str | None = None) -> Path
         dst = drive_root / sub
         shutil.copytree(src, dst, dirs_exist_ok=True)
         copied.append(sub)
+
+    for extra in extra_dirs or []:
+        extra = Path(extra)
+        if not extra.exists():
+            continue
+        try:
+            rel = extra.relative_to(root)
+        except ValueError:
+            rel = Path(extra.name)
+        shutil.copytree(extra, drive_root / rel, dirs_exist_ok=True)
+        copied.append(str(rel))
 
     if notebook and copied:
         run_dir = drive_root / "runs" / notebook

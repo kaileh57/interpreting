@@ -9,6 +9,7 @@ meaningless means.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from rcg.pipeline.evaluate import EvalResult
 
@@ -95,4 +96,124 @@ def sanity_checks(
             "may be too weak or mis-located — check patch layer/strength."
         )
 
-    return SanityReport(all(checks.values()) and not errors, checks=checks, details=details, warnings=warnings)
+    return SanityReport(
+        all(checks.values()) and not errors, checks=checks, details=details, warnings=warnings
+    )
+
+
+def _field(row: Any, *names: str, default: Any = None) -> Any:
+    """Read the first present, non-None field from a dict row or an attribute-bearing object."""
+    if isinstance(row, dict):
+        for name in names:
+            value = row.get(name)
+            if value is not None:
+                return value
+        return default
+    for name in names:
+        value = getattr(row, name, None)
+        if value is not None:
+            return value
+    return default
+
+
+def _row_is_error(row: Any) -> bool:
+    if _field(row, "failure_mode") == "error":
+        return True
+    error = _field(row, "error")
+    return bool(error)
+
+
+def structured_sanity(
+    results_or_rows: list[Any],
+    *,
+    chance_reportability: float,
+    causal_threshold: float = 0.5,
+    min_baseline: float = 0.5,
+    min_causal_rate: float = 0.1,
+) -> dict[str, Any]:
+    """
+    Dict-returning sanity report for the decisive-rerun notebooks (10+).
+
+    Unlike `sanity_checks` (which requires `EvalResult` objects), this accepts
+    either `EvalResult`s or plain dict rows (e.g. a pandas `to_dict("records")`
+    export), so it can validate the metadata-rich CSV rows those notebooks
+    build directly. Always returns the same required keys so callers can save
+    it straight into a manifest.
+    """
+    rows = list(results_or_rows)
+    warnings: list[str] = []
+    failures: list[str] = []
+
+    errors = [r for r in rows if _row_is_error(r)]
+    real = [r for r in rows if not _row_is_error(r)]
+    no_eval_errors = len(errors) == 0
+    if not no_eval_errors:
+        warnings.append(
+            f"{len(errors)} evaluation/intervention error(s) present — excluded from means below."
+        )
+        failures.append("no_eval_errors")
+
+    if not real:
+        return {
+            "no_eval_errors": no_eval_errors,
+            "task_has_signal": False,
+            "readout_beats_chance": False,
+            "intervention_moves_logit": False,
+            "fraction_causal_examples": 0.0,
+            "best_mean_reportability": 0.0,
+            "chance_reportability": chance_reportability,
+            "warnings": warnings + ["no successful rows"],
+            "failures": failures
+            + ["task_has_signal", "readout_beats_chance", "intervention_moves_logit"],
+        }
+
+    baselines = [abs(float(_field(r, "baseline_logit_diff", default=0.0) or 0.0)) for r in real]
+    mean_base = sum(baselines) / len(baselines) if baselines else 0.0
+    task_has_signal = mean_base >= min_baseline
+    if not task_has_signal:
+        warnings.append(f"mean |baseline logit diff| = {mean_base:.3f} < {min_baseline}")
+        failures.append("task_has_signal")
+
+    by_method: dict[str, list[float]] = {}
+    for r in real:
+        method = str(_field(r, "readout_method", "method", default="unknown"))
+        rep = _field(r, "reportability_score", "reportability")
+        if rep is None:
+            continue
+        by_method.setdefault(method, []).append(float(rep))
+    best_rep = max((sum(v) / len(v) for v in by_method.values()), default=0.0)
+    readout_beats_chance = best_rep > chance_reportability
+    if not readout_beats_chance:
+        warnings.append(
+            f"best mean reportability {best_rep:.3f} <= chance {chance_reportability:.3f}"
+        )
+        failures.append("readout_beats_chance")
+
+    causal_vals = []
+    for r in real:
+        ce = _field(r, "normalized_causal_effect", "causal_effect")
+        if ce is not None:
+            causal_vals.append(float(ce))
+    causal_rate = (
+        sum(1 for c in causal_vals if abs(c) >= causal_threshold) / len(causal_vals)
+        if causal_vals
+        else 0.0
+    )
+    intervention_moves_logit = causal_rate >= min_causal_rate
+    if not intervention_moves_logit:
+        warnings.append(
+            f"only {causal_rate:.1%} of examples show causal effect >= {causal_threshold}"
+        )
+        failures.append("intervention_moves_logit")
+
+    return {
+        "no_eval_errors": no_eval_errors,
+        "task_has_signal": task_has_signal,
+        "readout_beats_chance": readout_beats_chance,
+        "intervention_moves_logit": intervention_moves_logit,
+        "fraction_causal_examples": causal_rate,
+        "best_mean_reportability": best_rep,
+        "chance_reportability": chance_reportability,
+        "warnings": warnings,
+        "failures": failures,
+    }

@@ -84,6 +84,106 @@ def distractor_example(hidden_city: str = "Tokyo", seed: int = 0) -> LatentSlotT
     )
 
 
+def unique_latent_slot_examples(
+    n_per_seed: int,
+    seeds: list[int],
+    task_family: str = "latent_slot_city_currency",
+) -> list[LatentSlotTask]:
+    """
+    Balanced latent-slot tasks with globally unique example IDs across seeds.
+
+    `batch_latent_slot` reuses `latent_{index:05d}` regardless of seed, so
+    combining several of its seeds into one run silently collides IDs (e.g.
+    `latent_00000` from seed 1 and seed 2 are indistinguishable). IDs here embed
+    task family, seed, index, and the hidden value so multi-seed runs never
+    collide. Used by the decisive-rerun notebooks (10+).
+    """
+    cities = list(CITY_CHAIN.keys())
+    tasks: list[LatentSlotTask] = []
+    for seed in seeds:
+        rng = random.Random(seed)
+        for i in range(n_per_seed):
+            hidden_city = rng.choice(cities)
+            example_id = f"{task_family}_seed{seed:03d}_i{i:04d}_hidden_{hidden_city.lower()}"
+            tasks.append(
+                latent_slot_example(hidden_city=hidden_city, seed=seed, example_id=example_id)
+            )
+    return tasks
+
+
+def distractor_pair_example(
+    hidden_city: str,
+    distractor_city: str,
+    seed: int = 0,
+    index: int = 0,
+) -> LatentSlotTask:
+    """
+    Distractor task for an arbitrary ordered (hidden, distractor) city pair.
+
+    `distractor_example` only ever pairs the hidden city against a single
+    fixed foil (Paris, or Cairo when the hidden city is Paris), so any
+    distractor-rank/causality result built on it is confounded with that one
+    pairing. This generates every ordered pair so the result isn't an
+    artifact of a single Tokyo-hidden/Paris-distractor combination.
+
+    Also derives a `distractor_corrupt_city` (one of the two cities not used
+    as hidden or distractor) and stashes the corresponding
+    `distractor_corrupt_prompt` in `latent_variables`, so notebooks can measure
+    a distractor-only causal effect via string replacement while holding the
+    hidden-city marker fixed.
+    """
+    if hidden_city == distractor_city:
+        raise ValueError("hidden_city and distractor_city must differ")
+
+    remaining = [c for c in CITY_CHAIN if c not in (hidden_city, distractor_city)]
+    rng = random.Random(seed * 10_000 + index)
+    distractor_corrupt_city = rng.choice(remaining) if remaining else hidden_city
+
+    base = latent_slot_example(hidden_city=hidden_city, seed=seed)
+    prompt = (
+        f'The word "{distractor_city}" appears in this sentence, but the hidden '
+        f"city for the task is {hidden_city}.\n"
+        "Answer using only the hidden city.\n"
+        "The country containing the hidden city uses the currency ___"
+    )
+    country, currency = CITY_CHAIN[hidden_city]
+    _, distractor_currency = CITY_CHAIN[distractor_city]
+    clean_prompt = prompt.replace(
+        "Answer using only", f"[hidden city={hidden_city}] Answer using only"
+    )
+    corrupt_prompt = prompt.replace(
+        "Answer using only", f"[hidden city={distractor_city}] Answer using only"
+    )
+    distractor_corrupt_prompt = prompt.replace(distractor_city, distractor_corrupt_city)
+    example_id = (
+        f"distractor_city_currency_seed{seed:03d}_i{index:04d}_"
+        f"hidden_{hidden_city.lower()}_dist_{distractor_city.lower()}"
+    )
+    return base.model_copy(
+        update={
+            "example_id": example_id,
+            "prompt": prompt,
+            "clean_prompt": clean_prompt,
+            "corrupt_prompt": corrupt_prompt,
+            "task_family": "distractor_city_currency",
+            "latent_variables": {
+                "hidden_city": hidden_city,
+                "distractor_city": distractor_city,
+                "distractor_corrupt_city": distractor_corrupt_city,
+                "distractor_corrupt_prompt": distractor_corrupt_prompt,
+                "target_country": country,
+                "target_currency": currency,
+                "distractor_currency": distractor_currency,
+            },
+            "target_metric": TargetMetric(
+                type="logit_diff",
+                positive_token=f" {currency}",
+                negative_token=f" {distractor_currency}",
+            ),
+        }
+    )
+
+
 INDEX_RULES = [("first", 0), ("second", 1), ("third", 2), ("fourth", 3)]
 ITEM_SETS = [
     ["apple", "banana", "cherry", "date"],
