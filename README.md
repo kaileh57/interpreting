@@ -10,7 +10,8 @@ Plan: [`plan.md`](plan.md) · Draft: [`paper/paper.md`](paper/paper.md) · Libra
 
 `HF_TOKEN` is hardcoded in every notebook, so: open in Colab → set the GPU from
 the table → **Run all**. Run in order; each notebook is independent and writes to
-`results/`. Accept the [Gemma 3 license](https://huggingface.co/google/gemma-3-4b-it) once.
+`results/`. Cell 1 mounts Drive; the last cell copies `results/` and `data/` to
+`MyDrive/rcg-bench/`. Accept the [Gemma 3 license](https://huggingface.co/google/gemma-3-4b-it) once.
 
 | Notebook | GPU | Model | N | ETA |
 |----------|-----|-------|---|-----|
@@ -35,8 +36,8 @@ min). Scale via `MODEL_ID` in cell 2 or `RCG_MODEL_ID` (e.g.
 
 - **Runtime does not auto-stop.** After the last cell it stays idle and keeps
   burning compute units until you **Runtime → Disconnect and delete runtime**.
-- **`results/` is on the Colab VM.** Download it (or mount Drive) before
-  disconnecting or the outputs are gone.
+- **Outputs land on Drive automatically** at `MyDrive/rcg-bench/` (last cell).
+  Each notebook also snapshots to `runs/<notebook>/`.
 - **Pro has no background execution** (Pro+ only): keep the tab open and the
   machine awake, or the run dies. ~2–3 concurrent sessions on Pro.
 - **Public push = token revoked.** HF auto-revokes the hardcoded key if you push

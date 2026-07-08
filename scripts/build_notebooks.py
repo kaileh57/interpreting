@@ -69,7 +69,8 @@ def header(title: str, gpu: str, blurb: str) -> str:
 {blurb}
 
 Run **all cells top to bottom.** Cell 1 installs deps, logs into Hugging Face,
-and generates datasets. Results are written to `results/`.
+mounts Google Drive, and generates datasets. Results are written to `results/`
+and copied to `MyDrive/rcg-bench/` at the end.
 """
 
 
@@ -116,13 +117,64 @@ if root is None:
 os.chdir(root)
 sys.path.insert(0, str(root / "src"))
 
+# Pull latest library fixes when using the cloned Colab copy.
+if (root / ".git").exists():
+    subprocess.run(["git", "pull", "--ff-only"], cwd=root, capture_output=True)
+
 from rcg.notebook_utils import colab_bootstrap, gpu_banner, pick_model_id
+
+def mount_drive(folder="rcg-bench"):
+    if "google.colab" not in sys.modules:
+        return None
+    from google.colab import drive
+    drive.mount("/content/drive", force_remount=False)
+    out = Path("/content/drive/MyDrive") / folder
+    out.mkdir(parents=True, exist_ok=True)
+    os.environ["RCG_DRIVE_DIR"] = str(out)
+    return out
 
 # require_gpu=False so the notebook also runs on a CPU fallback model for testing.
 colab_bootstrap(install=True, require_gpu=False)
+drive_dir = mount_drive()
 print(gpu_banner())
+if drive_dir:
+    print("Drive output:", drive_dir)
 """
 )
+
+
+def drive_sync(notebook: str) -> dict:
+    return code(
+        f"""
+# Save results + generated datasets to Google Drive (no-op when Drive isn't mounted).
+import os, shutil
+from pathlib import Path
+
+def sync_to_drive(root, notebook=None):
+    drive_dir = os.environ.get("RCG_DRIVE_DIR")
+    if not drive_dir:
+        print("Drive not mounted — skipping sync.")
+        return None
+    root = Path(root)
+    drive_root = Path(drive_dir)
+    copied = []
+    for sub in ("results", "data"):
+        src = root / sub
+        if not src.exists():
+            continue
+        shutil.copytree(src, drive_root / sub, dirs_exist_ok=True)
+        copied.append(sub)
+    if notebook and copied:
+        run_dir = drive_root / "runs" / notebook
+        run_dir.mkdir(parents=True, exist_ok=True)
+        for sub in copied:
+            shutil.copytree(root / sub, run_dir / sub, dirs_exist_ok=True)
+    print(f"Synced to Drive: {{drive_root}} ({{', '.join(copied) or 'nothing to copy'}})")
+    return drive_root
+
+sync_to_drive(Path.cwd(), notebook="{notebook}")
+"""
+    )
 
 
 def model_cell(default_id: str) -> dict:
@@ -185,9 +237,17 @@ sae_res = ablator.intervene_and_measure(task.prompt,
              tm.positive_token, tm.negative_token)
 print("sae ablation:", {k: round(v, 4) for k, v in sae_res.items()})
 assert "delta" in res and "delta" in sae_res
+from rcg.pipeline.results import results_dir
+import json
+(results_dir() / "00_smoke.json").write_text(json.dumps({
+    "status": "passed",
+    "residual_patch_delta": res["delta"],
+    "sae_ablation_delta": sae_res["delta"],
+}, indent=2))
 print("Smoke test passed.")
 """
         ),
+        drive_sync("00_smoke_test"),
     )
 
 
@@ -291,6 +351,7 @@ print("causal effect:", [round(x, 3) for x in causal_by_layer])
 layer_curve(sweep_layers, rep_by_layer, causal_by_layer, title="Exp 1: layer curve")
 """
         ),
+        drive_sync("01_experiment_latent_slot"),
     )
 
 
@@ -366,6 +427,7 @@ eff = das.intervene_and_measure(probe_task.prompt, tm.positive_token, tm.negativ
 print("DAS prediction:", pred.concept, "| intervention delta:", round(eff["delta"], 4))
 """
         ),
+        drive_sync("02_experiment_distractor"),
     )
 
 
@@ -419,6 +481,7 @@ print("=> hypothesis holds if causal effect >> reportability (causal but unreada
 display(df.head(10))
 """
         ),
+        drive_sync("03_experiment_hard_to_report"),
     )
 
 
@@ -462,6 +525,7 @@ print("self-report vs J-lens disagreement rate:",
 display(df.head(10))
 """
         ),
+        drive_sync("04_experiment_prefill_introspection"),
     )
 
 
@@ -524,6 +588,7 @@ for ex in [eval_ex, deploy_ex]:
 (results_dir() / "05_hidden_objective.json").write_text(json.dumps(out, indent=2))
 """
         ),
+        drive_sync("05_experiment_hidden_objective"),
     )
 
 
@@ -660,6 +725,7 @@ for beta in [0.5, 1.0, 2.0, 4.0]:
     print(f"  beta {beta}: {d:+.4f}")
 """
         ),
+        drive_sync("06_experiment_tool_comparison"),
     )
 
 
@@ -709,6 +775,7 @@ display(pd.DataFrame(summary_table(results)))
 save_run(f"07_cross_model_{MODEL_ID.split('/')[-1]}", results)
 """
         ),
+        drive_sync("07_experiment_cross_model"),
     )
 
 
@@ -775,6 +842,7 @@ display(compare)
 print("RQ5: compare mean RCG gap between base and instruct rows above.")
 """
         ),
+        drive_sync("08_experiment_base_vs_instruct"),
     )
 
 
@@ -834,6 +902,8 @@ for t in tasks:
     rows.append({"id": t.example_id, "hidden_city": gt, "ao_answer": res.concept, "correct": rep})
 
 df = pd.DataFrame(rows)
+from rcg.pipeline.results import results_dir
+df.to_json(results_dir() / "09_activation_oracle.json", orient="records", indent=2)
 print(f"{method_name} forced-choice reportability:", bootstrap_ci(reps))
 print("(chance = 1/{} = {:.3f})".format(len(CITIES), 1/len(CITIES)))
 display(df.head(10))
@@ -848,6 +918,7 @@ map the named city to its residual direction / SAE feature and intervene
 `RCG_AO_CHECKPOINT`; see `sources/tooling/activation_oracles.md`.
 """
         ),
+        drive_sync("09_experiment_activation_oracle"),
     )
 
 

@@ -107,3 +107,50 @@ def gpu_banner(preferred: str = "google/gemma-3-270m-it") -> str:
     name = torch.cuda.get_device_name(0) if cuda else "CPU"
     hf = "ok" if os.environ.get("HF_TOKEN") else "missing"
     return f"{name} | {pick_model_id(preferred)} | HF: {hf}"
+
+
+def mount_drive(folder: str = "rcg-bench") -> Path | None:
+    """Mount Google Drive in Colab and return the project output directory."""
+    if "google.colab" not in sys.modules:
+        return None
+    try:
+        from google.colab import drive
+
+        drive.mount("/content/drive", force_remount=False)
+        out = Path("/content/drive/MyDrive") / folder
+        out.mkdir(parents=True, exist_ok=True)
+        os.environ["RCG_DRIVE_DIR"] = str(out)
+        return out
+    except Exception as exc:
+        print("Drive mount failed:", exc)
+        return None
+
+
+def sync_to_drive(root: Path | None = None, notebook: str | None = None) -> Path | None:
+    """Copy results/ and data/ to the mounted Drive folder (no-op if not on Colab)."""
+    import shutil
+
+    drive_dir = os.environ.get("RCG_DRIVE_DIR")
+    if not drive_dir:
+        print("Drive not mounted — skipping sync.")
+        return None
+
+    root = root or repo_root()
+    drive_root = Path(drive_dir)
+    copied: list[str] = []
+    for sub in ("results", "data"):
+        src = root / sub
+        if not src.exists():
+            continue
+        dst = drive_root / sub
+        shutil.copytree(src, dst, dirs_exist_ok=True)
+        copied.append(sub)
+
+    if notebook and copied:
+        run_dir = drive_root / "runs" / notebook
+        run_dir.mkdir(parents=True, exist_ok=True)
+        for sub in copied:
+            shutil.copytree(root / sub, run_dir / sub, dirs_exist_ok=True)
+
+    print(f"Synced to Drive: {drive_root} ({', '.join(copied) or 'nothing to copy'})")
+    return drive_root

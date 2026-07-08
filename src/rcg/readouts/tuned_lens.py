@@ -36,14 +36,16 @@ class TunedLensReadout:
         x = torch.stack(src)  # [n, d]
         y = torch.stack(dst)  # [n, d]
         d = x.shape[1]
-        gram = x.t() @ x + ridge * torch.eye(d)
+        eye = torch.eye(d, device=x.device, dtype=x.dtype)
+        gram = x.t() @ x + ridge * eye
         self.translator = torch.linalg.solve(gram, x.t() @ y)  # [d, d]
 
     def top_k(self, prompt: str, k: int = 10) -> list[ReadoutResult]:
         if self.translator is None:
             raise ValueError("Call TunedLensReadout.calibrate(...) before top_k")
         h = capture_last_activation(self.model, self.tokenizer, prompt, self.layer).float()
-        translated = h @ self.translator
+        translator = self.translator.to(device=h.device, dtype=h.dtype)
+        translated = h @ translator
         lm_head = self.model.get_output_embeddings()
         with torch.no_grad():
             logits = lm_head(translated.to(lm_head.weight.dtype))
