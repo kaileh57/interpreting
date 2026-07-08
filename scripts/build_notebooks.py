@@ -10,10 +10,24 @@ runs its experiment, and writes outputs to results/. Heavy external artifacts
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 NB = ROOT / "notebooks"
+
+
+def _load_hf_token() -> str:
+    """Read HF token from env or the gitignored .env (never hardcode in this file)."""
+    tok = os.environ.get("HF_TOKEN", "")
+    if not tok:
+        env_file = ROOT / ".env"
+        if env_file.exists():
+            for line in env_file.read_text(encoding="utf-8").splitlines():
+                if line.strip().startswith("HF_TOKEN="):
+                    tok = line.split("=", 1)[1].strip().strip('"').strip("'")
+                    break
+    return tok
 
 
 def md(text: str) -> dict:
@@ -66,14 +80,15 @@ def write(name: str, notebook: dict) -> None:
     print("wrote", path.relative_to(ROOT))
 
 
-# Hardcoded HF token: user-supplied read-only token so notebooks run without
-# Colab secrets. NOTE: committing this to a public repo will get it auto-revoked
-# by Hugging Face's secret scanning; prefer the gitignored .env for reliability.
-HF_TOKEN = "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"
+# HF token is read from the gitignored .env at build time and injected into the
+# generated (also gitignored) notebooks. It is NEVER written into this committed
+# file, so nothing here leaks to GitHub.
+HF_TOKEN = _load_hf_token()
 
-# Set REPO_URL to your GitHub clone URL. When a notebook is opened from GitHub,
-# Colab does NOT bring the repo with it, so the setup cell clones it first.
-REPO_URL = "https://github.com/REPLACE_ME/interpreting.git"
+# The VS Code Colab extension runs the kernel on a REMOTE Linux VM that does not
+# have this repo. So the setup cell fetches the code onto whatever machine runs
+# it: it uses local files if present, otherwise clones from REPO_URL.
+REPO_URL = "https://github.com/kaileh57/interpreting.git"
 
 SETUP = code(
     f"""
@@ -92,16 +107,9 @@ def _find_root():
 
 root = _find_root()
 if root is None:
-    # Opened standalone (e.g. from GitHub in Colab): clone the repo.
-    name = REPO_URL.rstrip("/").split("/")[-1].removesuffix(".git")
-    target = Path.cwd() / name
+    # Remote runtime without the repo: clone it once (idempotent).
+    target = Path.cwd() / "interpreting"
     if not (target / "src" / "rcg").exists():
-        if "REPLACE_ME" in REPO_URL:
-            raise RuntimeError(
-                "Repo not found and REPO_URL is not set. Either (a) set REPO_URL "
-                "above to your GitHub clone URL, or (b) upload the repo folder to "
-                "Colab and run from inside it."
-            )
         subprocess.check_call(["git", "clone", "--depth", "1", REPO_URL, str(target)])
     root = target
 

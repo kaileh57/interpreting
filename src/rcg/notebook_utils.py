@@ -7,7 +7,17 @@ import subprocess
 import sys
 from pathlib import Path
 
-import torch
+# NOTE: torch is imported lazily inside functions so this module imports even in
+# a bare kernel; colab_bootstrap() can then pip-install deps before torch is used.
+
+
+def _cuda_available() -> bool:
+    try:
+        import torch
+
+        return torch.cuda.is_available()
+    except Exception:
+        return False
 
 
 def repo_root() -> Path:
@@ -78,7 +88,7 @@ def colab_bootstrap(install: bool = True, require_gpu: bool = True) -> Path:
     if not (root / "data" / "latent_slot_tasks" / "dataset.json").exists():
         subprocess.check_call([sys.executable, "scripts/generate_datasets.py"], cwd=root)
 
-    if require_gpu and "google.colab" in sys.modules and not torch.cuda.is_available():
+    if require_gpu and "google.colab" in sys.modules and not _cuda_available():
         raise RuntimeError("Enable GPU: Runtime → Change runtime type → GPU")
 
     return root
@@ -87,10 +97,12 @@ def colab_bootstrap(install: bool = True, require_gpu: bool = True) -> Path:
 def pick_model_id(preferred: str = "google/gemma-3-270m-it", fallback: str = "gpt2") -> str:
     if os.environ.get("RCG_MODEL_ID"):
         return os.environ["RCG_MODEL_ID"]
-    return preferred if torch.cuda.is_available() else fallback
+    return preferred if _cuda_available() else fallback
 
 
 def gpu_banner(preferred: str = "google/gemma-3-270m-it") -> str:
+    import torch
+
     cuda = torch.cuda.is_available()
     name = torch.cuda.get_device_name(0) if cuda else "CPU"
     hf = "ok" if os.environ.get("HF_TOKEN") else "missing"

@@ -40,6 +40,10 @@ ENV/
 .ipynb_checkpoints/
 *.ipynb_checkpoints
 
+# Generated notebooks contain the hardcoded HF token — never commit them.
+# Regenerate locally with: python scripts/build_notebooks.py
+notebooks/*.ipynb
+
 # Testing / coverage
 .pytest_cache/
 .coverage
